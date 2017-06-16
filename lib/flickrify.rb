@@ -10,9 +10,9 @@ module Flickrify
 
     api_key = params[:api_key]
     secret = params[:shared_secret]
-    search_terms = params[:search_terms]
-    width = params[:width].to_i
-    height = params[:height].to_i
+    search_terms = params[:search_terms] || []
+    width = params[:width].to_i || 150
+    height = params[:height].to_i || 120
     path = params[:path]
     results = []
 
