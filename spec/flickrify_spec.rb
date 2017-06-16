@@ -1,20 +1,21 @@
 require "spec_helper"
 
 RSpec.describe Flickrify do
+
+  params = {api_key: "52a9382944cfd5b900b7af9c4ca84553",
+            shared_secret: "92831b8c738df632",
+            search_terms: ["weather", "maps", "news", "calculator", "dictionary", "movies", "horoscope", "games", "love", "prince"],
+            width: 150,
+            height: 200,
+            path: "/tmp"
+  }
+
   it "has a version number" do
     expect(Flickrify::VERSION).not_to be nil
   end
 
   it "it should search the photos for given 10 search terms" do
-    Flickrify.search_photos(["term 1", "term 2", "term 3", "term 4", "term 5", "term 6", "term 7", "term 8", "term 9", "term 10"], "../rails_apps")
-  end
-
-  it "it should search 10 photos for given 5 search terms" do
-    Flickrify.search_photos(["term 1", "term 2", "term 3", "term 4", "term 5"], "../rails_apps")
-  end
-
-  it "it should search 10 photos for given unsearchable terms" do
-    Flickrify.search_photos(["term 1", "term 2", "term 3", "term 4", "term 5"], "../rails_apps")
+    Flickrify.search_photos(params)
   end
 
 end

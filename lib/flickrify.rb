@@ -1,22 +1,24 @@
 require "flickrify/version"
 require 'flickraw'
 require 'csv'
-require 'logger'
 require "open-uri"
-require 'rmagick'
+require 'mini_magick'
 
 module Flickrify
 
-  def self.search_photos(search_terms = [], path)
+  def self.search_photos(params)
 
-    #Initializing Logger
-    @logger = Logger.new(STDOUT)
-    @logger.level = Logger::WARN
+    api_key = params[:api_key]
+    secret = params[:shared_secret]
+    search_terms = params[:search_terms]
+    width = params[:width].to_i
+    height = params[:height].to_i
+    path = params[:path]
+    results = []
 
     # Connecting with Flickr APi
-    flickr = Flickrify.connect
+    flickr = Flickrify.connect(api_key, secret)
 
-    results = []
     while results.size < 10 do
       failed_terms = []
       search_terms.each do |term|
@@ -30,31 +32,26 @@ module Flickrify
           source = photo["source"]
           photo_title = photo["source"].split("/").last
 
-          # Downloading photos and saving them in temp dir
-          File.open("tmp/#{photo_title}", 'wb') do |fo|
-            fo.write open(source.to_s).read
-          end
+          # Downloading photos and resising them and saving them to user given path
+          image = MiniMagick::Image.open(source.to_s)
+          image = Flickrify.resize_and_crop(image, width, height)
+          image.write("#{path}/#{photo_title}")
+
           results << photo_title
-        rescue => e
-          @logger.info("Failed to search photos for : #{term}. Error: #{e.inspect}")
+        rescue
           failed_terms << term
         end
       end
       #Counting and setting Search terms if given search terms are les then 10 or some of them are failed to search
       search_terms = Flickrify.parse_search_terms(search_terms, failed_terms)
     end
-
-    # Croping and Saving Downladed Images to the user given dir path
-   # Flickrify.crop_and_save(path)
   end
 
-  def self.connect
+  def self.connect(api_key, secret)
     begin
-      FlickRaw.api_key = "52a9382944cfd5b900b7af9c4ca84553"
-      FlickRaw.shared_secret = "92831b8c738df632"
+      FlickRaw.api_key = api_key
+      FlickRaw.shared_secret = secret
       FlickRaw::Flickr.new
-    rescue => e
-      @logger.info("Failed to connect with Flickr API : #{e.inspect}")
     end
   end
 
@@ -73,15 +70,50 @@ module Flickrify
     terms
   end
 
-  def self.crop_and_save(path)
-    dir_path = File.join(File.expand_path('../flickrify'), 'tmp')
-    Dir.open(dir_path).each do |filename|
-      image = Magick::Image::read("#{dir_path}/#{filename}").first
-      image.resize_to_fill(200, 100).write("#{path}/#{filename}")
+  def self.resize_and_crop(image, w, h)
+    w_original =image[:width]
+    h_original =image[:height]
+
+    if (w_original*h != h_original * w)
+      if w_original*h >= h_original * w
+        # long width
+        h_original_new = h_original
+        w_original_new = h_original_new * (w.to_f / h)
+      elsif w_original*h <= h_original * w
+        # long height
+        w_original_new = w_original
+        h_original_new = w_original_new * (h.to_f / w)
+      end
+    else
+      # good proportions
+      h_original_new = h_original
+      w_original_new = w_original
+
     end
 
-    # removing all downlaoded images from tem dir
-    FileUtils.rm_rf(Dir.glob("#{dir_path}/*"))
+    # v1. remove extra space
+
+    begin
+      if w_original_new != w_original
+        remove = ((w_original - w_original_new)/2).round
+        image.shave("#{remove}x0")
+      end
+      if h_original_new != h_original
+        remove = ((h_original - h_original_new)/2).round
+        image.shave("0x#{remove}")
+      end
+
+    end
+
+    # v2. or use crop instead of shave
+    if w_original_new != w_original || h_original_new != h_original
+      x = ((w_original - w_original_new)/2).round
+      y = ((h_original - h_original_new)/2).round
+      image.crop ("#{w_original_new}x#{h_original_new}+#{x}+#{y}")
+    end
+
+    image.resize("#{w}x#{h}")
+    return image
   end
 
 end
